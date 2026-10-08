@@ -1,0 +1,84 @@
+name: docker-devops
+services:
+  app:
+    build:
+      context: /mnt/c/Users/Tim/Desktop/FIIT/docker2/docker-DEVOPS
+      dockerfile: Dockerfile
+    depends_on:
+      cache:
+        condition: service_healthy
+        required: true
+      db:
+        condition: service_healthy
+        required: true
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      POSTGRES_DB: compose_demo
+      POSTGRES_PASSWORD: ***
+      POSTGRES_USER: compose_user
+      REDIS_HOST: cache
+      REDIS_PORT: "6379"
+    networks:
+      back: null
+      front: null
+  cache:
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      timeout: 3s
+      interval: 5s
+      retries: 10
+    image: redis:8.2-alpine
+    networks:
+      back: null
+  db:
+    environment:
+      POSTGRES_DB: compose_demo
+      POSTGRES_PASSWORD: ***
+      POSTGRES_USER: compose_user
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+      timeout: 5s
+      interval: 5s
+      retries: 10
+    image: postgres:18
+    networks:
+      back: null
+    volumes:
+      - type: volume
+        source: pgdata
+        target: /var/lib/postgresql
+        volume: {}
+  web:
+    depends_on:
+      app:
+        condition: service_started
+        required: true
+    image: nginx:1.29-alpine
+    networks:
+      front: null
+    ports:
+      - mode: ingress
+        target: 80
+        published: "18090"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: /mnt/c/Users/Tim/Desktop/FIIT/docker2/docker-DEVOPS/nginx/default.conf
+        target: /etc/nginx/conf.d/default.conf
+        read_only: true
+        bind:
+          create_host_path: true
+networks:
+  back:
+    name: docker-devops_back
+  front:
+    name: docker-devops_front
+volumes:
+  pgdata:
+    name: docker-devops_pgdata
